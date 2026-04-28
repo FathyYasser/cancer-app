@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # =========================
 # CONFIG
@@ -18,6 +19,16 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # =========================
+# LOAD DATA (SMART)
+# =========================
+@st.cache_data
+def load_data(file):
+    try:
+        return pd.read_csv(file, sep=None, engine='python')
+    except:
+        return None
+
+# =========================
 # TITLE
 # =========================
 st.title("🚀 Data Analysis Dashboard")
@@ -28,10 +39,14 @@ st.title("🚀 Data Analysis Dashboard")
 uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
 
 if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    df.columns = df.columns.str.strip()
-    st.session_state.df = df
-    st.success("File uploaded successfully")
+    df = load_data(uploaded_file)
+
+    if df is not None:
+        df.columns = df.columns.str.strip()
+        st.session_state.df = df
+        st.success("File uploaded successfully ✅")
+    else:
+        st.error("Error reading file ❌")
 
 # =========================
 # GET DATA
@@ -42,6 +57,34 @@ df = st.session_state.df
 # MAIN APP
 # =========================
 if df is not None:
+
+    # =========================
+    # SIDEBAR (Controls)
+    # =========================
+    st.sidebar.header("⚙ Controls")
+
+    chart_type = st.sidebar.selectbox(
+        "Select Chart Type",
+        ["Bar Chart", "Pie Chart", "Line Chart", "Histogram", "Scatter Plot"]
+    )
+
+    # =========================
+    # COLUMN TYPES
+    # =========================
+    cat_cols = df.select_dtypes(include=["object", "category"]).columns.tolist()
+    num_cols = df.select_dtypes(include="number").columns.tolist()
+
+    # =========================
+    # FILTERS 🔥
+    # =========================
+    st.sidebar.subheader("🔍 Filters")
+
+    for col in cat_cols:
+        unique_vals = df[col].dropna().unique()
+        selected_vals = st.sidebar.multiselect(col, unique_vals)
+
+        if selected_vals:
+            df = df[df[col].isin(selected_vals)]
 
     # =========================
     # CLEANING
@@ -82,30 +125,17 @@ if df is not None:
     st.dataframe(df.head())
 
     # =========================
-    # CHART TYPE
+    # VISUALIZATION
     # =========================
     st.subheader("📈 Visualization")
 
-    chart_type = st.selectbox(
-        "Select Chart Type",
-        ["Bar Chart", "Pie Chart", "Line Chart", "Histogram", "Scatter Plot"]
-    )
-
-    # =========================
-    # COLUMN TYPES
-    # =========================
-    cat_cols = df.select_dtypes(include=["object", "category"]).columns
-    num_cols = df.select_dtypes(include="number").columns
-
-    # =========================
-    # BAR / PIE
-    # =========================
+    # -------- BAR / PIE --------
     if chart_type in ["Bar Chart", "Pie Chart"]:
 
         if len(cat_cols) == 0:
             st.warning("No categorical columns found")
         else:
-            col = st.selectbox("Select Column", list(cat_cols))
+            col = st.selectbox("Select Column", cat_cols)
 
             data = df[col].value_counts().head(10)
 
@@ -119,15 +149,13 @@ if df is not None:
 
             st.pyplot(fig)
 
-    # =========================
-    # LINE CHART
-    # =========================
+    # -------- LINE --------
     elif chart_type == "Line Chart":
 
         if len(num_cols) == 0:
             st.warning("No numeric columns found")
         else:
-            col = st.selectbox("Select Numeric Column", list(num_cols))
+            col = st.selectbox("Select Numeric Column", num_cols)
 
             fig, ax = plt.subplots()
             ax.plot(df[col].dropna())
@@ -135,15 +163,13 @@ if df is not None:
 
             st.pyplot(fig)
 
-    # =========================
-    # HISTOGRAM
-    # =========================
+    # -------- HISTOGRAM --------
     elif chart_type == "Histogram":
 
         if len(num_cols) == 0:
             st.warning("No numeric columns found")
         else:
-            col = st.selectbox("Select Numeric Column", list(num_cols))
+            col = st.selectbox("Select Numeric Column", num_cols)
 
             fig, ax = plt.subplots()
             ax.hist(df[col].dropna(), bins=20)
@@ -151,16 +177,14 @@ if df is not None:
 
             st.pyplot(fig)
 
-    # =========================
-    # SCATTER PLOT
-    # =========================
+    # -------- SCATTER --------
     elif chart_type == "Scatter Plot":
 
         if len(num_cols) < 2:
             st.warning("Need at least 2 numeric columns")
         else:
-            x = st.selectbox("X Axis", list(num_cols))
-            y = st.selectbox("Y Axis", list(num_cols))
+            x = st.selectbox("X Axis", num_cols)
+            y = st.selectbox("Y Axis", num_cols)
 
             fig, ax = plt.subplots()
             ax.scatter(df[x], df[y], alpha=0.5)
@@ -171,12 +195,14 @@ if df is not None:
             st.pyplot(fig)
 
     # =========================
-    # CORRELATION
+    # CORRELATION (Heatmap 🔥)
     # =========================
     st.subheader("📉 Correlation Matrix")
 
     if len(num_cols) > 1:
-        st.dataframe(df[num_cols].corr())
+        fig, ax = plt.subplots()
+        sns.heatmap(df[num_cols].corr(), annot=True, ax=ax)
+        st.pyplot(fig)
     else:
         st.info("Not enough numeric columns")
 
