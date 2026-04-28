@@ -19,13 +19,20 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # =========================
-# LOAD DATA (SMART)
+# LOAD DATA (CSV + Excel)
 # =========================
 @st.cache_data
 def load_data(file):
     try:
-        return pd.read_csv(file, sep=None, engine='python')
-    except:
+        # CSV
+        if file.name.endswith(".csv"):
+            return pd.read_csv(file, sep=None, engine='python')
+        
+        # Excel
+        elif file.name.endswith(".xlsx"):
+            return pd.read_excel(file)
+        
+    except Exception as e:
         return None
 
 # =========================
@@ -36,7 +43,10 @@ st.title("🚀 Data Analysis Dashboard")
 # =========================
 # UPLOAD
 # =========================
-uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
+uploaded_file = st.file_uploader(
+    "📁 Upload File",
+    type=["csv", "xlsx"]
+)
 
 if uploaded_file is not None:
     df = load_data(uploaded_file)
@@ -59,7 +69,7 @@ df = st.session_state.df
 if df is not None:
 
     # =========================
-    # SIDEBAR (Controls)
+    # SIDEBAR
     # =========================
     st.sidebar.header("⚙ Controls")
 
@@ -75,7 +85,7 @@ if df is not None:
     num_cols = df.select_dtypes(include="number").columns.tolist()
 
     # =========================
-    # FILTERS 🔥
+    # FILTERS
     # =========================
     st.sidebar.subheader("🔍 Filters")
 
@@ -89,122 +99,4 @@ if df is not None:
     # =========================
     # CLEANING
     # =========================
-    st.subheader("🧹 Data Cleaning")
-
-    c1, c2 = st.columns(2)
-
-    if c1.button("Remove Null Values"):
-        df = df.dropna()
-        st.session_state.df = df
-
-    if c2.button("Remove Duplicates"):
-        df = df.drop_duplicates()
-        st.session_state.df = df
-
-    st.download_button(
-        "⬇ Download Clean Data",
-        df.to_csv(index=False).encode("utf-8"),
-        "clean_data.csv",
-        "text/csv"
-    )
-
-    # =========================
-    # OVERVIEW
-    # =========================
-    st.subheader("📊 Overview")
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Rows", df.shape[0])
-    col2.metric("Columns", df.shape[1])
-    col3.metric("Missing Values", df.isnull().sum().sum())
-
-    # =========================
-    # PREVIEW
-    # =========================
-    st.subheader("📌 Data Preview")
-    st.dataframe(df.head())
-
-    # =========================
-    # VISUALIZATION
-    # =========================
-    st.subheader("📈 Visualization")
-
-    # -------- BAR / PIE --------
-    if chart_type in ["Bar Chart", "Pie Chart"]:
-
-        if len(cat_cols) == 0:
-            st.warning("No categorical columns found")
-        else:
-            col = st.selectbox("Select Column", cat_cols)
-
-            data = df[col].value_counts().head(10)
-
-            fig, ax = plt.subplots()
-
-            if chart_type == "Bar Chart":
-                data.plot(kind="bar", ax=ax)
-                plt.xticks(rotation=45)
-            else:
-                data.plot(kind="pie", autopct="%1.1f%%", ax=ax)
-
-            st.pyplot(fig)
-
-    # -------- LINE --------
-    elif chart_type == "Line Chart":
-
-        if len(num_cols) == 0:
-            st.warning("No numeric columns found")
-        else:
-            col = st.selectbox("Select Numeric Column", num_cols)
-
-            fig, ax = plt.subplots()
-            ax.plot(df[col].dropna())
-            ax.set_title(col)
-
-            st.pyplot(fig)
-
-    # -------- HISTOGRAM --------
-    elif chart_type == "Histogram":
-
-        if len(num_cols) == 0:
-            st.warning("No numeric columns found")
-        else:
-            col = st.selectbox("Select Numeric Column", num_cols)
-
-            fig, ax = plt.subplots()
-            ax.hist(df[col].dropna(), bins=20)
-            ax.set_title("Distribution")
-
-            st.pyplot(fig)
-
-    # -------- SCATTER --------
-    elif chart_type == "Scatter Plot":
-
-        if len(num_cols) < 2:
-            st.warning("Need at least 2 numeric columns")
-        else:
-            x = st.selectbox("X Axis", num_cols)
-            y = st.selectbox("Y Axis", num_cols)
-
-            fig, ax = plt.subplots()
-            ax.scatter(df[x], df[y], alpha=0.5)
-
-            ax.set_xlabel(x)
-            ax.set_ylabel(y)
-
-            st.pyplot(fig)
-
-    # =========================
-    # CORRELATION (Heatmap 🔥)
-    # =========================
-    st.subheader("📉 Correlation Matrix")
-
-    if len(num_cols) > 1:
-        fig, ax = plt.subplots()
-        sns.heatmap(df[num_cols].corr(), annot=True, ax=ax)
-        st.pyplot(fig)
-    else:
-        st.info("Not enough numeric columns")
-
-else:
-    st.info("📂 Please upload a CSV file to start")
+    st
