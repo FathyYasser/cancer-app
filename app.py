@@ -23,17 +23,11 @@ if "df" not in st.session_state:
 # =========================
 @st.cache_data
 def load_data(file):
-    try:
-        # CSV
-        if file.name.endswith(".csv"):
-            return pd.read_csv(file, sep=None, engine='python')
-        
-        # Excel
-        elif file.name.endswith(".xlsx"):
-            return pd.read_excel(file, engine="openpyxl")
+    if file.name.endswith(".csv"):
+        return pd.read_csv(file, sep=None, engine="python")
 
-    except Exception as e:
-        return str(e)  # نرجع الخطأ بدل ما نخفيه
+    elif file.name.endswith(".xlsx"):
+        return pd.read_excel(file, engine="openpyxl")
 
 # =========================
 # TITLE
@@ -41,7 +35,7 @@ def load_data(file):
 st.title("🚀 Data Analysis Dashboard")
 
 # =========================
-# UPLOAD
+# UPLOAD FILE
 # =========================
 uploaded_file = st.file_uploader(
     "📁 Upload File",
@@ -49,15 +43,14 @@ uploaded_file = st.file_uploader(
 )
 
 if uploaded_file is not None:
-    result = load_data(uploaded_file)
-
-    if isinstance(result, pd.DataFrame):
-        df = result
+    try:
+        df = load_data(uploaded_file)
         df.columns = df.columns.str.strip()
         st.session_state.df = df
         st.success("File uploaded successfully ✅")
-    else:
-        st.error(f"Error reading file ❌\n{result}")
+
+    except Exception as e:
+        st.error(f"Error reading file ❌\n{e}")
 
 # =========================
 # GET DATA
@@ -90,12 +83,14 @@ if df is not None:
     # =========================
     st.sidebar.subheader("🔍 Filters")
 
+    filtered_df = df.copy()
+
     for col in cat_cols:
-        unique_vals = df[col].dropna().unique()
+        unique_vals = filtered_df[col].dropna().unique()
         selected_vals = st.sidebar.multiselect(col, unique_vals)
 
         if selected_vals:
-            df = df[df[col].isin(selected_vals)]
+            filtered_df = filtered_df[filtered_df[col].isin(selected_vals)]
 
     # =========================
     # CLEANING
@@ -105,16 +100,16 @@ if df is not None:
     c1, c2 = st.columns(2)
 
     if c1.button("Remove Null Values"):
-        df = df.dropna()
-        st.session_state.df = df
+        filtered_df = filtered_df.dropna()
+        st.session_state.df = filtered_df
 
     if c2.button("Remove Duplicates"):
-        df = df.drop_duplicates()
-        st.session_state.df = df
+        filtered_df = filtered_df.drop_duplicates()
+        st.session_state.df = filtered_df
 
     st.download_button(
         "⬇ Download Clean Data",
-        df.to_csv(index=False).encode("utf-8"),
+        filtered_df.to_csv(index=False).encode("utf-8"),
         "clean_data.csv",
         "text/csv"
     )
@@ -125,15 +120,15 @@ if df is not None:
     st.subheader("📊 Overview")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Rows", df.shape[0])
-    col2.metric("Columns", df.shape[1])
-    col3.metric("Missing Values", df.isnull().sum().sum())
+    col1.metric("Rows", filtered_df.shape[0])
+    col2.metric("Columns", filtered_df.shape[1])
+    col3.metric("Missing Values", filtered_df.isnull().sum().sum())
 
     # =========================
     # PREVIEW
     # =========================
     st.subheader("📌 Data Preview")
-    st.dataframe(df.head(), use_container_width=True)
+    st.dataframe(filtered_df.head(), use_container_width=True)
 
     # =========================
     # VISUALIZATION
@@ -148,9 +143,9 @@ if df is not None:
         else:
             col = st.selectbox("Select Column", cat_cols)
 
-            data = df[col].value_counts().head(10)
+            data = filtered_df[col].value_counts().head(10)
 
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=(6, 4))
 
             if chart_type == "Bar Chart":
                 data.plot(kind="bar", ax=ax)
@@ -168,8 +163,8 @@ if df is not None:
         else:
             col = st.selectbox("Select Numeric Column", num_cols)
 
-            fig, ax = plt.subplots()
-            ax.plot(df[col].dropna())
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.plot(filtered_df[col].dropna().reset_index(drop=True))
             ax.set_title(col)
 
             st.pyplot(fig)
@@ -182,8 +177,8 @@ if df is not None:
         else:
             col = st.selectbox("Select Numeric Column", num_cols)
 
-            fig, ax = plt.subplots()
-            ax.hist(df[col].dropna(), bins=20)
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.hist(filtered_df[col].dropna(), bins=20)
             ax.set_title("Distribution")
 
             st.pyplot(fig)
@@ -197,8 +192,8 @@ if df is not None:
             x = st.selectbox("X Axis", num_cols)
             y = st.selectbox("Y Axis", num_cols)
 
-            fig, ax = plt.subplots()
-            ax.scatter(df[x], df[y], alpha=0.5)
+            fig, ax = plt.subplots(figsize=(6, 4))
+            ax.scatter(filtered_df[x], filtered_df[y], alpha=0.5)
 
             ax.set_xlabel(x)
             ax.set_ylabel(y)
@@ -206,16 +201,22 @@ if df is not None:
             st.pyplot(fig)
 
     # =========================
-    # CORRELATION
+    # SMALL CORRELATION (OPTIONAL MINI VERSION)
     # =========================
-    st.subheader("📉 Correlation Matrix")
-
     if len(num_cols) > 1:
-        fig, ax = plt.subplots()
-        sns.heatmap(df[num_cols].corr(), annot=True, ax=ax)
-        st.pyplot(fig)
-    else:
-        st.info("Not enough numeric columns")
+        with st.expander("📉 Correlation Matrix (Optional)"):
+            fig, ax = plt.subplots(figsize=(4, 3))
+
+            sns.heatmap(
+                filtered_df[num_cols].corr(),
+                annot=True,
+                fmt=".2f",
+                cmap="coolwarm",
+                linewidths=0.5,
+                ax=ax
+            )
+
+            st.pyplot(fig)
 
 else:
     st.info("📂 Please upload a CSV or Excel file to start")
