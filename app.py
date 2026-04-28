@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # =========================
 # CONFIG
@@ -24,7 +23,7 @@ df = st.session_state.df
 # TITLE
 # =========================
 st.title("🚀 Data Analysis Dashboard")
-st.write("Upload your CSV file and explore the data visually 📊")
+st.write("Upload your dataset and explore it visually 📊")
 
 # =========================
 # UPLOAD FILE
@@ -50,14 +49,14 @@ if df is not None:
     # =========================
     st.subheader("🧹 Data Cleaning")
 
-    col1, col2 = st.columns(2)
+    c1, c2 = st.columns(2)
 
-    if col1.button("Remove Null Values"):
+    if c1.button("Remove Null Values"):
         st.session_state.df = st.session_state.df.dropna()
         df = st.session_state.df
         st.success("Null values removed")
 
-    if col2.button("Remove Duplicates"):
+    if c2.button("Remove Duplicates"):
         st.session_state.df = st.session_state.df.drop_duplicates()
         df = st.session_state.df
         st.success("Duplicates removed")
@@ -72,12 +71,12 @@ if df is not None:
     # =========================
     # STATS
     # =========================
-    st.subheader("📊 Dataset Overview")
+    st.subheader("📊 Overview")
 
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Rows", df.shape[0])
-    c2.metric("Columns", df.shape[1])
-    c3.metric("Missing Values", df.isnull().sum().sum())
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Rows", df.shape[0])
+    col2.metric("Columns", df.shape[1])
+    col3.metric("Missing Values", df.isnull().sum().sum())
 
     # =========================
     # PREVIEW
@@ -88,39 +87,49 @@ if df is not None:
     # =========================
     # VISUALIZATION
     # =========================
-    st.subheader("📈 Data Visualization")
+    st.subheader("📈 Visualization")
 
     chart_type = st.selectbox(
         "Select Chart Type",
-        ["Bar Chart", "Pie Chart", "Line Chart", "Histogram", "Scatter Plot", "Heatmap"]
+        ["Bar Chart", "Pie Chart", "Line Chart", "Histogram", "Scatter Plot"]
     )
 
+    # =========================
+    # COLUMNS FILTER (IMPORTANT FIX)
+    # =========================
+    cat_cols = df.select_dtypes(include=["object", "category"]).columns
     num_cols = df.select_dtypes(include="number").columns
-    all_cols = df.columns
 
     # =========================
     # BAR / PIE
     # =========================
     if chart_type in ["Bar Chart", "Pie Chart"]:
-        col = st.selectbox("Select Column", all_cols)
 
-        data = df[col].value_counts().head(10)
-
-        fig, ax = plt.subplots()
-
-        if chart_type == "Bar Chart":
-            data.plot(kind="bar", ax=ax)
-            plt.xticks(rotation=45)
+        if len(cat_cols) == 0:
+            st.warning("No categorical columns found")
         else:
-            data.plot(kind="pie", autopct="%1.1f%%", ax=ax)
+            col = st.selectbox("Select Column", cat_cols)
 
-        st.pyplot(fig)
+            data = df[col].value_counts().head(10)
+
+            fig, ax = plt.subplots()
+
+            if chart_type == "Bar Chart":
+                data.plot(kind="bar", ax=ax)
+                plt.xticks(rotation=45)
+            else:
+                data.plot(kind="pie", autopct="%1.1f%%", ax=ax)
+
+            st.pyplot(fig)
 
     # =========================
     # LINE CHART
     # =========================
     elif chart_type == "Line Chart":
-        if len(num_cols) > 0:
+
+        if len(num_cols) == 0:
+            st.warning("No numeric columns found")
+        else:
             col = st.selectbox("Select Numeric Column", num_cols)
             st.line_chart(df[col].dropna())
 
@@ -128,7 +137,10 @@ if df is not None:
     # HISTOGRAM
     # =========================
     elif chart_type == "Histogram":
-        if len(num_cols) > 0:
+
+        if len(num_cols) == 0:
+            st.warning("No numeric columns found")
+        else:
             col = st.selectbox("Select Column", num_cols)
 
             fig, ax = plt.subplots()
@@ -140,7 +152,10 @@ if df is not None:
     # SCATTER PLOT
     # =========================
     elif chart_type == "Scatter Plot":
-        if len(num_cols) >= 2:
+
+        if len(num_cols) < 2:
+            st.warning("Need at least 2 numeric columns")
+        else:
             x = st.selectbox("X Axis", num_cols)
             y = st.selectbox("Y Axis", num_cols)
 
@@ -152,25 +167,14 @@ if df is not None:
             st.pyplot(fig)
 
     # =========================
-    # HEATMAP
+    # CORRELATION
     # =========================
-    elif chart_type == "Heatmap":
-        if len(num_cols) > 1:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.heatmap(df[num_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
-            st.pyplot(fig)
+    st.subheader("📉 Correlation Matrix")
 
-    # =========================
-    # CORRELATION TABLE
-    # =========================
-    st.subheader("📉 Correlation Table")
-
-    num_df = df.select_dtypes(include="number")
-
-    if num_df.shape[1] > 1:
-        st.dataframe(num_df.corr())
+    if len(num_cols) > 1:
+        st.dataframe(df[num_cols].corr())
     else:
         st.info("Not enough numeric columns for correlation")
 
 else:
-    st.info("📂 Please upload a CSV file to start analysis")
+    st.info("📂 Please upload a CSV file to start")
