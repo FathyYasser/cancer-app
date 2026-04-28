@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 # CONFIG
 # =========================
 st.set_page_config(
-    page_title="Data Analysis Dashboard",
+    page_title="Data Dashboard",
     layout="wide",
     page_icon="📊"
 )
@@ -17,27 +17,26 @@ st.set_page_config(
 if "df" not in st.session_state:
     st.session_state.df = None
 
-df = st.session_state.df
-
 # =========================
 # TITLE
 # =========================
 st.title("🚀 Data Analysis Dashboard")
-st.write("Upload your dataset and explore it visually 📊")
 
 # =========================
-# UPLOAD FILE
+# UPLOAD
 # =========================
 uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
 
 if uploaded_file is not None:
-    try:
-        st.session_state.df = pd.read_csv(uploaded_file)
-        st.session_state.df.columns = st.session_state.df.columns.str.strip()
-        df = st.session_state.df
-        st.success("✅ File uploaded successfully!")
-    except:
-        st.error("❌ Error reading file")
+    df = pd.read_csv(uploaded_file)
+    df.columns = df.columns.str.strip()
+    st.session_state.df = df
+    st.success("File uploaded successfully")
+
+# =========================
+# GET DATA
+# =========================
+df = st.session_state.df
 
 # =========================
 # MAIN APP
@@ -52,14 +51,12 @@ if df is not None:
     c1, c2 = st.columns(2)
 
     if c1.button("Remove Null Values"):
-        st.session_state.df = st.session_state.df.dropna()
-        df = st.session_state.df
-        st.success("Null values removed")
+        df = df.dropna()
+        st.session_state.df = df
 
     if c2.button("Remove Duplicates"):
-        st.session_state.df = st.session_state.df.drop_duplicates()
-        df = st.session_state.df
-        st.success("Duplicates removed")
+        df = df.drop_duplicates()
+        st.session_state.df = df
 
     st.download_button(
         "⬇ Download Clean Data",
@@ -69,7 +66,7 @@ if df is not None:
     )
 
     # =========================
-    # STATS
+    # OVERVIEW
     # =========================
     st.subheader("📊 Overview")
 
@@ -85,7 +82,7 @@ if df is not None:
     st.dataframe(df.head())
 
     # =========================
-    # VISUALIZATION
+    # CHART TYPE
     # =========================
     st.subheader("📈 Visualization")
 
@@ -95,7 +92,7 @@ if df is not None:
     )
 
     # =========================
-    # COLUMNS FILTER (IMPORTANT FIX)
+    # COLUMN TYPES
     # =========================
     cat_cols = df.select_dtypes(include=["object", "category"]).columns
     num_cols = df.select_dtypes(include="number").columns
@@ -108,7 +105,7 @@ if df is not None:
         if len(cat_cols) == 0:
             st.warning("No categorical columns found")
         else:
-            col = st.selectbox("Select Column", cat_cols)
+            col = st.selectbox("Select Column", list(cat_cols))
 
             data = df[col].value_counts().head(10)
 
@@ -130,8 +127,13 @@ if df is not None:
         if len(num_cols) == 0:
             st.warning("No numeric columns found")
         else:
-            col = st.selectbox("Select Numeric Column", num_cols)
-            st.line_chart(df[col].dropna())
+            col = st.selectbox("Select Numeric Column", list(num_cols))
+
+            fig, ax = plt.subplots()
+            ax.plot(df[col].dropna())
+            ax.set_title(col)
+
+            st.pyplot(fig)
 
     # =========================
     # HISTOGRAM
@@ -141,11 +143,12 @@ if df is not None:
         if len(num_cols) == 0:
             st.warning("No numeric columns found")
         else:
-            col = st.selectbox("Select Column", num_cols)
+            col = st.selectbox("Select Numeric Column", list(num_cols))
 
             fig, ax = plt.subplots()
             ax.hist(df[col].dropna(), bins=20)
             ax.set_title("Distribution")
+
             st.pyplot(fig)
 
     # =========================
@@ -156,11 +159,12 @@ if df is not None:
         if len(num_cols) < 2:
             st.warning("Need at least 2 numeric columns")
         else:
-            x = st.selectbox("X Axis", num_cols)
-            y = st.selectbox("Y Axis", num_cols)
+            x = st.selectbox("X Axis", list(num_cols))
+            y = st.selectbox("Y Axis", list(num_cols))
 
             fig, ax = plt.subplots()
             ax.scatter(df[x], df[y], alpha=0.5)
+
             ax.set_xlabel(x)
             ax.set_ylabel(y)
 
@@ -174,7 +178,7 @@ if df is not None:
     if len(num_cols) > 1:
         st.dataframe(df[num_cols].corr())
     else:
-        st.info("Not enough numeric columns for correlation")
+        st.info("Not enough numeric columns")
 
 else:
     st.info("📂 Please upload a CSV file to start")
