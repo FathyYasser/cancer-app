@@ -13,7 +13,7 @@ uploaded_file = st.file_uploader("Upload Dataset (CSV)", type=["csv"])
 
 if uploaded_file:
 
-    df = pd.read_csv(uploaded_file, sep=';')
+  df = pd.read_csv(uploaded_file, sep=None, engine="python")
     df.columns = df.columns.str.strip()
 
     st.success("✅ Data Loaded Successfully!")
