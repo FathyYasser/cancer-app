@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 # =========================
 # CONFIG
@@ -19,7 +18,7 @@ if "df" not in st.session_state:
     st.session_state.df = None
 
 # =========================
-# LOAD DATA (CSV + Excel)
+# LOAD DATA
 # =========================
 @st.cache_data
 def load_data(file):
@@ -35,7 +34,7 @@ def load_data(file):
 st.title("🚀 Data Analysis Dashboard")
 
 # =========================
-# UPLOAD FILE
+# UPLOAD
 # =========================
 uploaded_file = st.file_uploader(
     "📁 Upload File",
@@ -197,24 +196,6 @@ if df is not None:
 
             ax.set_xlabel(x)
             ax.set_ylabel(y)
-
-            st.pyplot(fig)
-
-    # =========================
-    # SMALL CORRELATION (OPTIONAL MINI VERSION)
-    # =========================
-    if len(num_cols) > 1:
-        with st.expander("📉 Correlation Matrix (Optional)"):
-            fig, ax = plt.subplots(figsize=(4, 3))
-
-            sns.heatmap(
-                filtered_df[num_cols].corr(),
-                annot=True,
-                fmt=".2f",
-                cmap="coolwarm",
-                linewidths=0.5,
-                ax=ax
-            )
 
             st.pyplot(fig)
 
