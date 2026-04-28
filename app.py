@@ -1,114 +1,176 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-st.set_page_config(page_title="Cancer Analysis Dashboard", layout="wide")
+# =========================
+# CONFIG
+# =========================
+st.set_page_config(
+    page_title="Data Analysis Dashboard",
+    layout="wide",
+    page_icon="📊"
+)
 
-st.title("📊 Cancer Patients Analysis Dashboard")
+# =========================
+# SESSION STATE
+# =========================
+if "df" not in st.session_state:
+    st.session_state.df = None
 
-# =====================
-# Upload Data
-# =====================
-uploaded_file = st.file_uploader("Upload Dataset (CSV)", type=["csv"])
+df = st.session_state.df
 
-if uploaded_file:
+# =========================
+# TITLE
+# =========================
+st.title("🚀 Data Analysis Dashboard")
+st.write("Upload your CSV file and explore the data visually 📊")
 
-  df = pd.read_csv(uploaded_file, sep=None, engine="python")
-    df.columns = df.columns.str.strip()
+# =========================
+# UPLOAD FILE
+# =========================
+uploaded_file = st.file_uploader("📁 Upload CSV File", type=["csv"])
 
-    st.success("✅ Data Loaded Successfully!")
+if uploaded_file is not None:
+    try:
+        st.session_state.df = pd.read_csv(uploaded_file)
+        st.session_state.df.columns = st.session_state.df.columns.str.strip()
+        df = st.session_state.df
+        st.success("✅ File uploaded successfully!")
+    except:
+        st.error("❌ Error reading file")
 
-    # =====================
-    # Preview
-    # =====================
+# =========================
+# MAIN APP
+# =========================
+if df is not None:
+
+    # =========================
+    # CLEANING
+    # =========================
+    st.subheader("🧹 Data Cleaning")
+
+    col1, col2 = st.columns(2)
+
+    if col1.button("Remove Null Values"):
+        st.session_state.df = st.session_state.df.dropna()
+        df = st.session_state.df
+        st.success("Null values removed")
+
+    if col2.button("Remove Duplicates"):
+        st.session_state.df = st.session_state.df.drop_duplicates()
+        df = st.session_state.df
+        st.success("Duplicates removed")
+
+    st.download_button(
+        "⬇ Download Clean Data",
+        df.to_csv(index=False).encode("utf-8"),
+        "clean_data.csv",
+        "text/csv"
+    )
+
+    # =========================
+    # STATS
+    # =========================
+    st.subheader("📊 Dataset Overview")
+
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Rows", df.shape[0])
+    c2.metric("Columns", df.shape[1])
+    c3.metric("Missing Values", df.isnull().sum().sum())
+
+    # =========================
+    # PREVIEW
+    # =========================
     st.subheader("📌 Data Preview")
     st.dataframe(df.head())
 
-    # =====================
-    # Basic Stats
-    # =====================
-    st.subheader("📊 Dataset Overview")
-    st.write(df.describe(include='all'))
+    # =========================
+    # VISUALIZATION
+    # =========================
+    st.subheader("📈 Data Visualization")
 
-    # =====================
-    # Filters Section
-    # =====================
-    st.sidebar.header("🔎 Filters")
+    chart_type = st.selectbox(
+        "Select Chart Type",
+        ["Bar Chart", "Pie Chart", "Line Chart", "Histogram", "Scatter Plot", "Heatmap"]
+    )
 
-    if "Gender" in df.columns:
-        gender_filter = st.sidebar.multiselect("Gender", df["Gender"].dropna().unique(), default=df["Gender"].dropna().unique())
-        df = df[df["Gender"].isin(gender_filter)]
+    num_cols = df.select_dtypes(include="number").columns
+    all_cols = df.columns
 
-    if "Cancer_Type" in df.columns:
-        type_filter = st.sidebar.multiselect("Cancer Type", df["Cancer_Type"].dropna().unique(), default=df["Cancer_Type"].dropna().unique())
-        df = df[df["Cancer_Type"].isin(type_filter)]
+    # =========================
+    # BAR / PIE
+    # =========================
+    if chart_type in ["Bar Chart", "Pie Chart"]:
+        col = st.selectbox("Select Column", all_cols)
 
-    # =====================
-    # Age Distribution
-    # =====================
-    if "Age" in df.columns:
-        st.subheader("📈 Age Distribution")
+        data = df[col].value_counts().head(10)
+
         fig, ax = plt.subplots()
-        ax.hist(df["Age"].dropna(), bins=20)
+
+        if chart_type == "Bar Chart":
+            data.plot(kind="bar", ax=ax)
+            plt.xticks(rotation=45)
+        else:
+            data.plot(kind="pie", autopct="%1.1f%%", ax=ax)
+
         st.pyplot(fig)
 
-    # =====================
-    # Gender
-    # =====================
-    if "Gender" in df.columns:
-        st.subheader("🚻 Gender Distribution")
-        st.bar_chart(df["Gender"].value_counts())
+    # =========================
+    # LINE CHART
+    # =========================
+    elif chart_type == "Line Chart":
+        if len(num_cols) > 0:
+            col = st.selectbox("Select Numeric Column", num_cols)
+            st.line_chart(df[col].dropna())
 
-    # =====================
-    # Cancer Type
-    # =====================
-    if "Cancer_Type" in df.columns:
-        st.subheader("🧬 Cancer Types")
-        st.bar_chart(df["Cancer_Type"].value_counts())
+    # =========================
+    # HISTOGRAM
+    # =========================
+    elif chart_type == "Histogram":
+        if len(num_cols) > 0:
+            col = st.selectbox("Select Column", num_cols)
 
-    # =====================
-    # Cancer Stage
-    # =====================
-    if "Cancer_Stage" in df.columns:
-        st.subheader("⚕️ Cancer Stage Distribution")
-        st.bar_chart(df["Cancer_Stage"].value_counts())
+            fig, ax = plt.subplots()
+            ax.hist(df[col].dropna(), bins=20)
+            ax.set_title("Distribution")
+            st.pyplot(fig)
 
-    # =====================
-    # Smoking
-    # =====================
-    if "Smoking_Status" in df.columns:
-        st.subheader("🚬 Smoking Status")
-        st.bar_chart(df["Smoking_Status"].value_counts())
+    # =========================
+    # SCATTER PLOT
+    # =========================
+    elif chart_type == "Scatter Plot":
+        if len(num_cols) >= 2:
+            x = st.selectbox("X Axis", num_cols)
+            y = st.selectbox("Y Axis", num_cols)
 
-    # =====================
-    # Outcome
-    # =====================
-    if "Outcome" in df.columns:
-        st.subheader("🎯 Outcome Distribution")
-        st.bar_chart(df["Outcome"].value_counts())
+            fig, ax = plt.subplots()
+            ax.scatter(df[x], df[y], alpha=0.5)
+            ax.set_xlabel(x)
+            ax.set_ylabel(y)
 
-    # =====================
-    # Hospital Analysis
-    # =====================
-    if "Hospital" in df.columns:
-        st.subheader("🏥 Hospitals")
-        st.bar_chart(df["Hospital"].value_counts())
+            st.pyplot(fig)
 
-    # =====================
-    # Cause of Death
-    # =====================
-    if "Cause_of_Death" in df.columns:
-        st.subheader("⚰️ Cause of Death")
-        st.bar_chart(df["Cause_of_Death"].value_counts())
+    # =========================
+    # HEATMAP
+    # =========================
+    elif chart_type == "Heatmap":
+        if len(num_cols) > 1:
+            fig, ax = plt.subplots(figsize=(8, 5))
+            sns.heatmap(df[num_cols].corr(), annot=True, cmap="coolwarm", ax=ax)
+            st.pyplot(fig)
 
-    # =====================
-    # Correlation
-    # =====================
-    st.subheader("📊 Correlation (Numeric Features)")
+    # =========================
+    # CORRELATION TABLE
+    # =========================
+    st.subheader("📉 Correlation Table")
 
-    numeric_df = df.select_dtypes(include=['number'])
+    num_df = df.select_dtypes(include="number")
 
-    if not numeric_df.empty:
-        st.write(numeric_df.corr())
+    if num_df.shape[1] > 1:
+        st.dataframe(num_df.corr())
     else:
-        st.write("No numeric data available for correlation.")
+        st.info("Not enough numeric columns for correlation")
+
+else:
+    st.info("📂 Please upload a CSV file to start analysis")
